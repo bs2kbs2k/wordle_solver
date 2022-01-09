@@ -97,7 +97,6 @@ fn main() {
     let mut freq = freq_map.keys().copied().collect::<Vec<_>>();
     freq.sort_by(|a, b| freq_map.get(b).unwrap().cmp(freq_map.get(a).unwrap()));
     let freq = freq.into_iter().collect::<String>();
-    println!("{}", freq);
     let mut wordlist = wordlist
         .iter()
         .map(|word| {
