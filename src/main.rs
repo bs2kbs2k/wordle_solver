@@ -23,7 +23,8 @@ fn main() {
             acc
         },
     );
-    let mut wordlist = file.lines().collect::<Vec<_>>();
+    let wordlist = file.lines().collect::<Vec<_>>();
+    let mut possible_words = wordlist.clone();
     println!("Loaded {} words", wordlist.len());
     let mut freq = freq_map.keys().copied().collect::<Vec<_>>();
     freq.sort_by(|a, b| freq_map.get(b).unwrap().cmp(freq_map.get(a).unwrap()));
@@ -47,8 +48,8 @@ Type result into program in this format:
     Green : Z"#
     );
     loop {
-        println!("There are {} possible solutions", wordlist.len());
-        wordlist.sort_unstable_by(|a, b| {
+        println!("There are {} possible solutions", possible_words.len());
+        possible_words.sort_unstable_by(|a, b| {
             let mut a: Vec<char> = a.to_lowercase().chars().collect();
             let mut b: Vec<char> = b.to_lowercase().chars().collect();
             a.sort_unstable();
@@ -81,7 +82,7 @@ Type result into program in this format:
             }
             uniq_a.len().cmp(&uniq_b.len())
         });
-        let tried = wordlist.pop().expect("No possible solutions?");
+        let tried = possible_words.pop().expect("No possible solutions?");
         println!("Try: {}", tried);
         print!("Result: ");
         std::io::stdout().flush().unwrap();
@@ -108,7 +109,7 @@ Type result into program in this format:
                 _ => panic!("Invalic Character"),
             }
         }
-        wordlist = wordlist
+        possible_words = possible_words
             .into_iter()
             .filter(|elem| {
                 for (index, letter) in elem.char_indices() {
