@@ -1,6 +1,30 @@
 use std::io::Write;
 
-fn main() {
+use serde_derive::Deserialize;
+
+#[derive(Debug, Deserialize)]
+struct Response {
+    success: bool,
+    new_state: State,
+}
+
+#[derive(Debug, Deserialize)]
+struct State {
+    guesses: Vec<Guess>,
+    cooldown: Option<f64>,
+    diamonds: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct Guess {
+    word: String,
+    result: String,
+}
+
+#[async_std::main]
+async fn main() -> anyhow::Result<()> {
+    let client = surf::Client::new();
+    let token = std::env::var("TOKEN").expect("TOKEN not set");
     let file = std::env::args()
         .nth(1)
         .map(|path| std::fs::read_to_string(path).ok())
@@ -23,7 +47,8 @@ fn main() {
             acc
         },
     );
-    let mut wordlist = file.lines().collect::<Vec<_>>();
+    let orig_wordlist = file.lines().collect::<Vec<_>>();
+    let mut wordlist = orig_wordlist.clone();
     println!("Loaded {} words", wordlist.len());
     let mut freq = freq_map.keys().copied().collect::<Vec<_>>();
     freq.sort_by(|a, b| freq_map.get(b).unwrap().cmp(freq_map.get(a).unwrap()));
@@ -82,14 +107,47 @@ Type result into program in this format:
             uniq_a.len().cmp(&uniq_b.len())
         });
         let tried = wordlist.pop().expect("No possible solutions?");
-        println!("Try: {}", tried);
-        print!("Result: ");
-        std::io::stdout().flush().unwrap();
-        let mut result = String::new();
-        std::io::stdin().read_line(&mut result).unwrap();
-        if result.to_uppercase().trim() == "ZZZZZ" {
-            println!("Yay!");
-            break;
+        println!("Trying: {}", tried);
+        let mut response = client
+            .post(format!(
+                "https://htsea.qixils.dev/api/wordle/guess?guess={}",
+                tried
+            ))
+            .header("Cookie", format!("webToken={}", token))
+            .recv_json::<Response>()
+            .await
+            .map_err(|err| anyhow::anyhow!("{}", err))?;
+        let result = response
+            .new_state
+            .guesses
+            .last()
+            .unwrap()
+            .result
+            .clone()
+            .replace("y", "Y")
+            .replace("g", "Z")
+            .replace("x", "X");
+        println!("Result: {}", result);
+        println!("Diamonds: {}", response.new_state.diamonds);
+        println!("Response: {:?}", response);
+        if response.new_state.cooldown.is_some() {
+            println!("Next!");
+            async_std::task::sleep(std::time::Duration::from_secs_f64(
+                response.new_state.cooldown.unwrap() / 10000000f64 + 10f64,
+            ))
+            .await;
+            nowhere.clear();
+            somewhere.clear();
+            not_here = [
+                std::collections::HashSet::new(),
+                std::collections::HashSet::new(),
+                std::collections::HashSet::new(),
+                std::collections::HashSet::new(),
+                std::collections::HashSet::new(),
+            ];
+            known = [None, None, None, None, None];
+            wordlist = orig_wordlist.clone();
+            continue;
         }
         for (index, letter) in result.to_uppercase().trim().char_indices() {
             match letter {
@@ -133,4 +191,5 @@ Type result into program in this format:
             })
             .collect()
     }
+    Ok(())
 }
