@@ -1,4 +1,4 @@
-use std::io::Write;
+use chrono::{serde::ts_seconds_option, TimeZone};
 
 use serde_derive::Deserialize;
 
@@ -132,9 +132,12 @@ Type result into program in this format:
         println!("Response: {:?}", response);
         if response.new_state.cooldown.is_some() {
             println!("Next!");
-            async_std::task::sleep(std::time::Duration::from_secs_f64(
-                response.new_state.cooldown.unwrap() / 10000000f64 + 10f64,
-            ))
+            async_std::task::sleep(
+                (chrono::Utc.timestamp(response.new_state.cooldown.unwrap() as i64, 0)
+                    - chrono::Utc::now())
+                .to_std()
+                .unwrap(),
+            )
             .await;
             nowhere.clear();
             somewhere.clear();
